@@ -1,25 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>画像検索</title>
+<meta charset="UTF-8">
+<title>Gitadora Finder</title>
 
 <style>
 body{
-font-family:sans-serif;
-text-align:center;
-margin-top:40px;
+ background:#111;
+ color:white;
+ text-align:center;
+ font-family:sans-serif;
 }
 
-#result{
-margin-top:20px;
-width:300px;
+img{
+ max-width:90%;
+ margin-top:20px;
 }
 
 #status{
-margin-top:20px;
-font-size:18px;
-color:#333;
+ margin:20px;
+ font-size:18px;
 }
 </style>
 
@@ -27,132 +27,146 @@ color:#333;
 
 <body>
 
-<h2>写真をアップロード</h2>
+<h2>画像検索</h2>
 
 <input type="file" id="file">
-
 <div id="status">待機中</div>
 
 <img id="result">
 
 <script>
 
-const HOLE = 120
-const SIZE = 10
+const START=47
+const END=1475
+const SIZE=32
 
-const START = 47
-const END = 1475
+function pad(n){
+ return n.toString().padStart(5,"0")
+}
 
-document.getElementById("file").onchange = e => {
+function circleMask(data,w,h){
 
-document.getElementById("status").textContent="画像読み込み"
+ const cx=w/2
+ const cy=h/2
+ const r=w/2
 
-const file = e.target.files[0]
+ for(let y=0;y<h;y++){
+  for(let x=0;x<w;x++){
 
-const img = new Image()
+   const dx=x-cx
+   const dy=y-cy
 
-img.src = URL.createObjectURL(file)
+   if(dx*dx+dy*dy>r*r){
 
-img.onload = ()=> search(img)
+    const i=(y*w+x)*4
+
+    data[i]=0
+    data[i+1]=0
+    data[i+2]=0
+
+   }
+
+  }
+ }
 
 }
 
-function extract(img){
+function feature(img){
 
-const canvas=document.createElement("canvas")
-const ctx=canvas.getContext("2d")
+ const canvas=document.createElement("canvas")
+ canvas.width=SIZE
+ canvas.height=SIZE
 
-canvas.width=img.width
-canvas.height=img.height
+ const ctx=canvas.getContext("2d")
 
-ctx.drawImage(img,0,0)
+ ctx.filter="blur(4px)"
+ ctx.drawImage(img,0,0,SIZE,SIZE)
+ ctx.filter="none"
 
-const cx=img.width/2
-const cy=img.height/2
+ const imgData=ctx.getImageData(0,0,SIZE,SIZE)
 
-const small=document.createElement("canvas")
-small.width=SIZE
-small.height=SIZE
+ circleMask(imgData.data,SIZE,SIZE)
 
-small.getContext("2d").drawImage(
-canvas,
-cx-HOLE/2,
-cy-HOLE/2,
-HOLE,
-HOLE,
-0,
-0,
-SIZE,
-SIZE
-)
-
-const d=small.getContext("2d").getImageData(0,0,SIZE,SIZE).data
-
-let arr=[]
-
-for(let i=0;i<d.length;i+=4){
-arr.push((d[i]+d[i+1]+d[i+2])/3)
+ return imgData.data
 }
 
-return arr
+function diff(a,b){
 
+ let d=0
+
+ for(let i=0;i<a.length;i+=4){
+
+  d+=Math.abs(a[i]-b[i])
+  d+=Math.abs(a[i+1]-b[i+1])
+  d+=Math.abs(a[i+2]-b[i+2])
+
+ }
+
+ return d
 }
 
-async function loadFeature(name){
+function loadImage(src){
 
-return new Promise(resolve=>{
+ return new Promise(res=>{
 
-const img=new Image()
+  const img=new Image()
 
-img.src="./images/"+name
+  img.onload=()=>res(img)
+  img.onerror=()=>res(null)
 
-img.onload=()=>resolve(extract(img))
+  img.src=src
 
-img.onerror=()=>resolve(null)
-
-})
+ })
 
 }
 
-async function search(userImg){
+document.getElementById("file").onchange=async e=>{
 
-document.getElementById("status").textContent="検索開始"
+ const file=e.target.files[0]
 
-const q=extract(userImg)
+ if(!file) return
 
-let best=null
-let bestScore=1e20
+ const url=URL.createObjectURL(file)
 
-for(let i=START;i<=END;i++){
+ const inputImg=new Image()
 
-let name=String(i).padStart(5,"0")+".png"
+ inputImg.onload=async()=>{
 
-document.getElementById("status").textContent="検索中 "+name
+  const inputFeature=feature(inputImg)
 
-let f=await loadFeature(name)
+  let bestScore=1e20
+  let bestFile=null
 
-if(!f) continue
+  for(let i=START;i<=END;i++){
 
-let diff=0
+   const name=pad(i)+".png"
 
-for(let j=0;j<f.length;j++){
+   document.getElementById("status").innerText="検索中 "+name
 
-diff+=Math.abs(f[j]-q[j])
+   const img=await loadImage("images/"+name)
 
-}
+   if(!img) continue
 
-if(diff<bestScore){
+   const f=feature(img)
 
-bestScore=diff
-best=name
+   const score=diff(inputFeature,f)
 
-}
+   if(score<bestScore){
 
-}
+    bestScore=score
+    bestFile=name
 
-document.getElementById("status").textContent="結果 "+best
+   }
 
-document.getElementById("result").src="./images/"+best
+  }
+
+  document.getElementById("status").innerText="結果 "+bestFile
+
+  document.getElementById("result").src="images/"+bestFile
+
+ }
+
+ inputImg.src=url
 
 }
 
