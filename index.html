@@ -15,6 +15,12 @@ margin-top:40px;
 margin-top:20px;
 width:300px;
 }
+
+#status{
+margin-top:20px;
+font-size:18px;
+color:#333;
+}
 </style>
 
 </head>
@@ -25,7 +31,7 @@ width:300px;
 
 <input type="file" id="file">
 
-<br><br>
+<div id="status">待機中</div>
 
 <img id="result">
 
@@ -38,6 +44,8 @@ const START = 47
 const END = 1475
 
 document.getElementById("file").onchange = e => {
+
+document.getElementById("status").textContent="画像読み込み"
 
 const file = e.target.files[0]
 
@@ -108,6 +116,8 @@ img.onerror=()=>resolve(null)
 
 async function search(userImg){
 
+document.getElementById("status").textContent="検索開始"
+
 const q=extract(userImg)
 
 let best=null
@@ -116,6 +126,8 @@ let bestScore=1e20
 for(let i=START;i<=END;i++){
 
 let name=String(i).padStart(5,"0")+".png"
+
+document.getElementById("status").textContent="検索中 "+name
 
 let f=await loadFeature(name)
 
@@ -137,6 +149,8 @@ best=name
 }
 
 }
+
+document.getElementById("status").textContent="結果 "+best
 
 document.getElementById("result").src="./images/"+best
 
