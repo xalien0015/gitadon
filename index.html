@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>画像検索</title>
+
+<style>
+body{
+font-family:sans-serif;
+text-align:center;
+margin-top:40px;
+}
+
+#result{
+margin-top:20px;
+width:300px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>写真をアップロード</h2>
+
+<input type="file" id="file">
+
+<br><br>
+
+<img id="result">
+
+<script>
+
+const HOLE = 120
+const SIZE = 10
+
+const START = 47
+const END = 1475
+
+document.getElementById("file").onchange = e => {
+
+const file = e.target.files[0]
+
+const img = new Image()
+
+img.src = URL.createObjectURL(file)
+
+img.onload = ()=> search(img)
+
+}
+
+function extract(img){
+
+const canvas=document.createElement("canvas")
+const ctx=canvas.getContext("2d")
+
+canvas.width=img.width
+canvas.height=img.height
+
+ctx.drawImage(img,0,0)
+
+const cx=img.width/2
+const cy=img.height/2
+
+const small=document.createElement("canvas")
+small.width=SIZE
+small.height=SIZE
+
+small.getContext("2d").drawImage(
+canvas,
+cx-HOLE/2,
+cy-HOLE/2,
+HOLE,
+HOLE,
+0,
+0,
+SIZE,
+SIZE
+)
+
+const d=small.getContext("2d").getImageData(0,0,SIZE,SIZE).data
+
+let arr=[]
+
+for(let i=0;i<d.length;i+=4){
+arr.push((d[i]+d[i+1]+d[i+2])/3)
+}
+
+return arr
+
+}
+
+async function loadFeature(name){
+
+return new Promise(resolve=>{
+
+const img=new Image()
+
+img.src="./images/"+name
+
+img.onload=()=>resolve(extract(img))
+
+img.onerror=()=>resolve(null)
+
+})
+
+}
+
+async function search(userImg){
+
+const q=extract(userImg)
+
+let best=null
+let bestScore=1e20
+
+for(let i=START;i<=END;i++){
+
+let name=String(i).padStart(5,"0")+".png"
+
+let f=await loadFeature(name)
+
+if(!f) continue
+
+let diff=0
+
+for(let j=0;j<f.length;j++){
+
+diff+=Math.abs(f[j]-q[j])
+
+}
+
+if(diff<bestScore){
+
+bestScore=diff
+best=name
+
+}
+
+}
+
+document.getElementById("result").src="./images/"+best
+
+}
+
+</script>
+
+</body>
+</html>
